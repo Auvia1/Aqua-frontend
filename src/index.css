@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background-color: #edeae0;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+
+  body {
+    @apply antialiased font-sans text-body text-ink;
+    overflow: hidden;
+  }
+
+  html[lang='te'] body {
+    font-family: 'Noto Sans Telugu', 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+}
+
+@layer utilities {
+  .hero-money {
+    font-size: 40px;
+    line-height: 44px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  @media (max-width: 380px) {
+    .hero-money {
+      font-size: 32px;
+      line-height: 36px;
+    }
+  }
+
+  .pressable {
+    transition:
+      transform 200ms ease-out,
+      background-color 200ms ease-out,
+      color 200ms ease-out,
+      opacity 200ms ease-out,
+      box-shadow 200ms ease-out;
+  }
+
+  .pressable:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .rise-in {
+    animation: rise-in 200ms ease-out both;
+  }
+
+  .app-scroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .app-scroll > .rise-in {
+    min-height: 100%;
+  }
+
+  .app-frame {
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  @media (min-width: 768px) {
+    .app-frame {
+      height: min(844px, calc(100vh - 4rem));
+      height: min(844px, calc(100dvh - 4rem));
+    }
+  }
+}
+
+@keyframes rise-in {
+  from {
+    transform: translateY(8px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .rise-in,
+  .pressable {
+    animation: none !important;
+    transition: none !important;
+  }
+}
