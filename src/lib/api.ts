@@ -1,5 +1,8 @@
 const TOKEN_KEY = 'aqua.token';
 
+/** Empty in local dev so Vite can proxy `/api`. Set on Vercel to the Render URL. */
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+
 export function getToken(): string | null {
   try {
     return localStorage.getItem(TOKEN_KEY);
@@ -19,7 +22,7 @@ export function setToken(token: string | null): void {
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getToken();
-  const response = await fetch(path, {
+  const response = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
