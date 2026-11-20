@@ -1,4 +1,4 @@
-import { differenceInCalendarDays, format } from 'date-fns';
+import { differenceInCalendarDays } from 'date-fns';
 import { CATEGORY_BY_ID } from '@/data/categories';
 import { cycles } from '@/data/cycles';
 import { entries as allEntries } from '@/data/entries';
@@ -6,11 +6,10 @@ import { farm, ponds } from '@/data/farm';
 import { feedLogs } from '@/data/feedLogs';
 import { harvestSales } from '@/data/sales';
 import { nid } from '@/lib/api';
-import { APP_TODAY, parseISODate } from '@/lib/format';
-import { entryBelongsToCycle } from '@/services/ponds';
+import { parseISODate } from '@/lib/format';
+import { entryBelongsToCycle, cycleDayCount } from '@/services/ponds';
 import { upsertRows } from '@/services/remote';
 import type {
-  BarPoint,
   CategoryId,
   ChartSlice,
   CropCycle,
@@ -78,7 +77,6 @@ export interface PondDetailModel {
   entries: LedgerEntry[];
   extraEntries: LedgerEntry[];
   feedDays: FeedLog[];
-  feedChart: BarPoint[];
   sales: HarvestSale[];
 }
 
@@ -172,9 +170,9 @@ export function buildPondDetail(
         : ((netProfit - priorProfit) / Math.abs(priorProfit)) * 100;
 
   const dayNumber =
-    cycle.status === 'active' && pond.cycleNumber === cycle.number && pond.cycleDay
-      ? pond.cycleDay
-      : differenceInCalendarDays(cycle.endDate ? parseISODate(cycle.endDate) : APP_TODAY, parseISODate(cycle.startDate)) + 1;
+    cycle.id === 'none' || !cycle.startDate
+      ? 0
+      : cycleDayCount(cycle.startDate, cycle.status === 'closed' ? cycle.endDate : undefined);
 
   const feedDays = feedLogs.filter((log) => log.pondId === pondId && log.cycleId === cycle.id);
   const feedKg = feedDays.reduce((sum, log) => sum + log.kg, 0);
@@ -204,12 +202,6 @@ export function buildPondDetail(
     percent: spent === 0 ? 0 : Math.round((slice.value / spent) * 100),
     color: slice.color,
     category: DONUT_ORDER.find((id) => CATEGORY_BY_ID[id].label === slice.name),
-  }));
-
-  const last14 = feedDays.slice(-14);
-  const feedChart: BarPoint[] = last14.map((log) => ({
-    label: format(parseISODate(log.date), 'd'),
-    value: log.kg,
   }));
 
   const displayedProfit =
@@ -245,7 +237,6 @@ export function buildPondDetail(
     entries: [...pondEntries].sort((a, b) => b.date.localeCompare(a.date)),
     extraEntries: extraEntriesFor(),
     feedDays: [...feedDays].sort((a, b) => b.date.localeCompare(a.date)),
-    feedChart,
     sales,
   };
 }

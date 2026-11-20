@@ -1,6 +1,11 @@
+import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { Button } from '@/components/ui/Button';
 import { IconButton } from '@/components/ui/IconButton';
+import { Numpad } from '@/components/ui/Numpad';
 import { Stepper } from '@/features/add/Stepper';
+import { appendDecimal, backspaceAmount } from '@/services/add';
 import { ICON } from '@/lib/tokens';
 
 export interface MealRow {
@@ -21,8 +26,24 @@ export function FeedMeals({
   meals: MealRow[];
   onChange: (meals: MealRow[]) => void;
 }) {
+  const [padIndex, setPadIndex] = useState<number | null>(null);
+  const [digits, setDigits] = useState('0');
+
   const patch = (index: number, next: Partial<MealRow>) => {
     onChange(meals.map((meal, i) => (i === index ? { ...meal, ...next } : meal)));
+  };
+
+  const openPad = (index: number) => {
+    const kg = meals[index]?.kg ?? 0;
+    setDigits(kg > 0 ? String(kg) : '0');
+    setPadIndex(index);
+  };
+
+  const commitPad = () => {
+    if (padIndex == null) return;
+    const kg = Math.round((Number(digits) || 0) * 100) / 100;
+    patch(padIndex, { kg });
+    setPadIndex(null);
   };
 
   return (
@@ -51,7 +72,14 @@ export function FeedMeals({
                 onChange={(event) => patch(index, { time: event.target.value })}
                 className="h-12 min-w-0 flex-1 rounded-input bg-surface px-2 text-body text-ink outline-none focus-visible:ring-2 focus-visible:ring-forest-800/30"
               />
-              <Stepper value={meal.kg} step={0.5} suffix="kg" onChange={(kg) => patch(index, { kg })} />
+              <Stepper
+                value={meal.kg}
+                step={0.5}
+                suffix="kg"
+                valueLabel={`Enter kilograms for meal ${index + 1}`}
+                onValueClick={() => openPad(index)}
+                onChange={(kg) => patch(index, { kg })}
+              />
             </div>
           </li>
         ))}
@@ -65,6 +93,25 @@ export function FeedMeals({
           + Add meal
         </button>
       ) : null}
+
+      <BottomSheet
+        open={padIndex != null}
+        onClose={() => setPadIndex(null)}
+        title={padIndex == null ? 'Kilograms' : `Meal ${padIndex + 1} · kg`}
+      >
+        <div className="space-y-3 pb-2">
+          <p className="text-center text-display tabular-nums text-ink" aria-live="polite">
+            {digits || '0'}
+            <span className="ml-1 text-title font-medium text-muted">kg</span>
+          </p>
+          <Numpad
+            decimal
+            onKey={(key) => setDigits((current) => appendDecimal(current, key))}
+            onBackspace={() => setDigits((current) => backspaceAmount(current))}
+          />
+          <Button onClick={commitPad}>Done</Button>
+        </div>
+      </BottomSheet>
     </section>
   );
 }

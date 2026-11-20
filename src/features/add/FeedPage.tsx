@@ -6,30 +6,32 @@ import { useLedger } from '@/context/LedgerProvider';
 import { useUi } from '@/context/UiProvider';
 import { cycles } from '@/data/cycles';
 import { feedLogs } from '@/data/feedLogs';
-import { DEFAULT_MEALS, FEED_BRANDS, YESTERDAY_FEED } from '@/data/addCatalog';
+import { DEFAULT_MEALS, feedBrandLabel } from '@/data/addCatalog';
 import { ponds } from '@/data/farm';
 import { AddFooter } from '@/features/add/AddFooter';
 import { DateChip } from '@/features/add/DateChip';
 import { FeedMeals, type MealRow } from '@/features/add/FeedMeals';
 import { FeedPlanCard } from '@/features/add/FeedPlanCard';
 import { PondChips } from '@/features/add/PondChips';
-import { AddVendorSheet, DiscardSheet } from '@/features/ponds/PondSheets';
-import { formatGrouped, formatINRCompact, toISODate } from '@/lib/format';
+import { DiscardSheet } from '@/features/ponds/PondSheets';
+import { formatDate, formatGrouped, formatINRCompact, toISODate } from '@/lib/format';
 import { nid } from '@/lib/api';
-import { nextActivePond, pickDefaultPond, rememberPond } from '@/services/add';
+import { nextActivePond, pickDefaultPond, rememberPond, vendorIdForName } from '@/services/add';
+import { mealsToCopy, rememberMeals } from '@/services/feedMeals';
 import { activeCycleFor, cycleFeedPlan, saveCycle } from '@/services/ponds';
 import { saveFeedLogs } from '@/services/remote';
-import type { PaymentStatus } from '@/types';
+import type { Party, PaymentStatus } from '@/types';
 
-function planDraft(pondId: string) {
+function planDraft(pondId: string, parties: Party[]) {
   const plan = cycleFeedPlan(activeCycleFor(pondId));
+  const vendor = parties.find((party) => party.id === plan?.vendorId);
   return {
-    brand: plan?.brand ?? 'cp',
+    brand: feedBrandLabel(plan?.brand ?? ''),
     size: plan?.size ?? '2mm',
     bagWeight: String(plan?.bagWeight ?? 25),
     price: plan?.pricePerBag ? String(plan.pricePerBag) : '',
     payment: (plan?.payment ?? 'paid') as PaymentStatus,
-    vendorId: plan?.vendorId ?? '',
+    vendorName: vendor?.name ?? '',
     editPlan: !plan,
   };
 }
@@ -39,15 +41,11 @@ export function FeedPage() {
   const [params] = useSearchParams();
   const { showToast } = useUi();
   const { addEntries, addParty, parties } = useLedger();
-  const vendors = parties
-    .filter((party) => party.kind === 'vendor')
-    .map((party) => ({ value: party.id, label: party.name }));
 
   const [pondId, setPondId] = useState(() => pickDefaultPond(params.get('pond')));
   const [date, setDate] = useState(toISODate());
   const [meals, setMeals] = useState<MealRow[]>(DEFAULT_MEALS.map((meal) => ({ ...meal })));
-  const [draft, setDraft] = useState(() => planDraft(pickDefaultPond(params.get('pond'))));
-  const [vendorOpen, setVendorOpen] = useState(false);
+  const [draft, setDraft] = useState(() => planDraft(pickDefaultPond(params.get('pond')), parties));
   const [busy, setBusy] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
 
@@ -58,12 +56,11 @@ export function FeedPage() {
   const perKg = bag > 0 && bagPrice > 0 ? bagPrice / bag : 0;
   const totalKg = meals.reduce((sum, meal) => sum + meal.kg, 0);
   const cost = perKg > 0 ? Math.round(totalKg * perKg) : 0;
-  const previous = feedLogs.find((log) => log.pondId === pondId && log.date !== date);
+  const previous = feedLogs.find((log) => log.pondId === pondId && log.date.slice(0, 10) < date);
   const yesterdayKg = previous?.kg ?? 0;
   const delta = yesterdayKg > 0 && totalKg > 0 ? Math.round(((totalKg - yesterdayKg) / yesterdayKg) * 100) : 0;
   const pondName = ponds.find((pond) => pond.id === pondId)?.name ?? 'Pond';
-  const vendorName = vendors.find((vendor) => vendor.value === draft.vendorId)?.label;
-  const brandLabel = FEED_BRANDS.find((item) => item.value === draft.brand)?.label ?? draft.brand;
+  const brandLabel = feedBrandLabel(draft.brand);
   const dirty = totalKg > 0;
   const canSave = Boolean(pondId) && totalKg > 0 && bag > 0 && bagPrice > 0;
 
@@ -71,13 +68,13 @@ export function FeedPage() {
   const patchDraft = (next: Partial<typeof draft>) => setDraft((current) => ({ ...current, ...next }));
 
   const copyYesterday = () => {
-    const template = YESTERDAY_FEED[pondId];
-    if (template) {
-      setMeals(template.meals.map((meal) => ({ ...meal })));
-      showToast("Copied yesterday's meals");
+    const copied = mealsToCopy(pondId, date);
+    if (!copied) {
+      showToast('No feed logged for yesterday');
       return;
     }
-    showToast(previous ? 'Enter today’s kg. Meal times were not saved.' : 'No feed logged yet');
+    setMeals(copied.meals.map((meal) => ({ ...meal })));
+    showToast(copied.fromYesterday ? "Copied yesterday's meals" : `Copied meals from ${formatDate(copied.sourceDate)}`);
   };
 
   const onSave = async (nextPond: boolean) => {
@@ -85,21 +82,25 @@ export function FeedPage() {
     setBusy(true);
     try {
       rememberPond(pondId);
+      const vendorId = vendorIdForName(draft.vendorName, parties, addParty);
       if (cycle) {
         await saveCycle({
           ...cycle,
-          feedVendorId: draft.vendorId || undefined,
-          feedBrand: draft.brand,
+          feedVendorId: vendorId,
+          feedBrand: draft.brand.trim() || undefined,
           feedSize: draft.size,
           feedBagWeight: bag,
           feedPricePerBag: bagPrice,
           feedPayment: draft.payment,
         });
       }
+      const feedTitle = brandLabel
+        ? `Feed · ${brandLabel}${draft.size ? ` ${draft.size}` : ''}`
+        : `Feed${draft.size ? ` · ${draft.size}` : ''}`;
       addEntries([
         {
           id: nid('ent'),
-          title: `Feed · ${brandLabel} ${draft.size}`,
+          title: feedTitle,
           subtitle: pondName,
           amount: cost || 0,
           kind: 'expense',
@@ -107,12 +108,13 @@ export function FeedPage() {
           date,
           pondId,
           cycleId: cycles.find((item) => item.pondId === pondId && item.status === 'active')?.id,
-          partyId: draft.vendorId || undefined,
+          partyId: vendorId,
           payment: draft.payment,
           qty: totalKg,
           unit: 'kg',
         },
       ]);
+      const rows = meals.map((meal) => ({ time: meal.time, kg: meal.kg }));
       const log = {
         id: nid('feed'),
         pondId,
@@ -121,24 +123,18 @@ export function FeedPage() {
         meals: meals.filter((meal) => meal.kg > 0).length,
         kg: totalKg,
         cost: cost || 0,
+        rows,
       };
       feedLogs.unshift(log);
       saveFeedLogs([log]);
-      YESTERDAY_FEED[pondId] = {
-        meals: meals.map((meal) => ({ ...meal })),
-        brand: draft.brand,
-        size: draft.size,
-        bagWeight: bag,
-        pricePerBag: bagPrice,
-        vendorId: draft.vendorId,
-      };
+      rememberMeals(pondId, date, rows);
       showToast(`${formatINRCompact(cost || 0)} feed logged · ${pondName}`, 'success');
       if (nextPond) {
         const next = nextActivePond(pondId);
         setPondId(next);
         rememberPond(next);
         setMeals(DEFAULT_MEALS.map((meal) => ({ ...meal })));
-        setDraft(planDraft(next));
+        setDraft(planDraft(next, parties));
       } else {
         goBack();
       }
@@ -166,7 +162,7 @@ export function FeedPage() {
             onChange={(id) => {
               setPondId(id);
               rememberPond(id);
-              setDraft(planDraft(id));
+              setDraft(planDraft(id, parties));
             }}
           />
         </div>
@@ -182,20 +178,17 @@ export function FeedPage() {
           size={draft.size}
           bagWeight={draft.bagWeight}
           price={draft.price}
-          vendorId={draft.vendorId}
-          vendorName={vendorName}
-          vendors={vendors}
+          vendorName={draft.vendorName}
           payment={draft.payment}
           pricePerBag={savedPlan?.pricePerBag ?? bagPrice}
           bagKg={savedPlan?.bagWeight ?? bag}
           onEdit={() => patchDraft({ editPlan: true })}
-          onCancel={() => setDraft(planDraft(pondId))}
+          onCancel={() => setDraft(planDraft(pondId, parties))}
           onBrand={(brand) => patchDraft({ brand })}
           onSize={(size) => patchDraft({ size })}
           onBagWeight={(bagWeight) => patchDraft({ bagWeight })}
           onPrice={(price) => patchDraft({ price })}
-          onVendor={(vendorId) => patchDraft({ vendorId })}
-          onAddVendor={() => setVendorOpen(true)}
+          onVendorName={(vendorName) => patchDraft({ vendorName })}
           onPayment={(payment) => patchDraft({ payment })}
         />
 
@@ -234,16 +227,6 @@ export function FeedPage() {
         onSecondary={() => void onSave(true)}
       />
 
-      <AddVendorSheet
-        open={vendorOpen}
-        onClose={() => setVendorOpen(false)}
-        onAdd={(name) => {
-          const id = nid('vendor');
-          addParty({ id, name, kind: 'vendor' });
-          patchDraft({ vendorId: id });
-          setVendorOpen(false);
-        }}
-      />
       <DiscardSheet
         open={discardOpen}
         title="Discard entry?"

@@ -5,7 +5,7 @@ import { parties, ponds } from '@/data/farm';
 import { t } from '@/i18n';
 import { entryInBucket, entryInWindow } from '@/lib/entrySpan';
 import { APP_TODAY, formatMonthYear, parseISODate, toISODate } from '@/lib/format';
-import { entryBelongsToCycle } from '@/services/ponds';
+import { entryBelongsToCycle, currentCycleDay } from '@/services/ponds';
 import type {
   CategoryId,
   CropCycle,
@@ -181,7 +181,12 @@ export function buildHome(pondId: PondFilter, period: PeriodId, source: LedgerEn
     const pondSpent = source
       .filter((entry) => entry.pondId === pond.id && entry.kind === 'expense' && inHomePeriod(entry, start, end))
       .reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
-    return { pond, spent: pondSpent, speciesChip: speciesChip(pond) };
+    const cycleDay = pond.status === 'active' ? currentCycleDay(pond) : 0;
+    return {
+      pond: cycleDay > 0 ? { ...pond, cycleDay } : pond,
+      spent: pondSpent,
+      speciesChip: speciesChip(pond),
+    };
   });
 
   const recent = [...scoped].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);

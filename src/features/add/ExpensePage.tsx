@@ -5,18 +5,12 @@ import { PaidCreditToggle } from '@/components/ui/PaidCreditToggle';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useLedger } from '@/context/LedgerProvider';
 import { useUi } from '@/context/UiProvider';
-import { ponds, parties as farmParties } from '@/data/farm';
-import { EXPENSE_CATEGORIES, unitLabel } from '@/data/addCatalog';
+import { ponds } from '@/data/farm';
+import { EXPENSE_CATEGORIES } from '@/data/addCatalog';
 import { AddFooter } from '@/features/add/AddFooter';
 import { AmountDisplay } from '@/features/add/AmountDisplay';
 import { DateChip } from '@/features/add/DateChip';
-import {
-  CategoryGrid,
-  CustomCategorySheet,
-  EMPTY_MORE,
-  ExpenseDetails,
-  type ExpenseMore,
-} from '@/features/add/ExpenseDetails';
+import { CategoryGrid, CustomCategorySheet } from '@/features/add/ExpenseDetails';
 import { PondChips } from '@/features/add/PondChips';
 import { DiscardSheet } from '@/features/ponds/PondSheets';
 import { nid } from '@/lib/api';
@@ -36,19 +30,12 @@ export function ExpensePage() {
 
   const [pondId, setPondId] = useState(() => pickDefaultPond(params.get('pond')));
   const [amount, setAmount] = useState('0');
-  const [locked, setLocked] = useState(false);
   const [category, setCategory] = useState<CategoryId | null>(null);
   const [customLabel, setCustomLabel] = useState('');
   const [customOpen, setCustomOpen] = useState(false);
   const [customDraft, setCustomDraft] = useState('');
   const [date, setDate] = useState(toISODate());
   const [payment, setPayment] = useState<PaymentStatus>('paid');
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [more, setMore] = useState<ExpenseMore>(EMPTY_MORE);
-  const [vendors, setVendors] = useState(() =>
-    farmParties.filter((p) => p.kind === 'vendor').map((p) => ({ value: p.id, label: p.name })),
-  );
-  const [pad, setPad] = useState(true);
   const [busy, setBusy] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -66,36 +53,8 @@ export function ExpensePage() {
     setCategory(existing.category);
     setDate(existing.date.slice(0, 10));
     setPayment(existing.payment);
-    setMore({
-      ...EMPTY_MORE,
-      item: existing.item ?? '',
-      qty: existing.qty != null ? String(existing.qty) : '',
-      unit: existing.unit || 'bag',
-      rate: existing.rate != null ? String(existing.rate) : '',
-      partyId: existing.partyId ?? '',
-      mode: existing.mode ?? 'cash',
-      photoUrl: existing.photoUrl ?? '',
-      note: existing.note ?? '',
-    });
     setHydrated(true);
   }, [editId, existing, hydrated, navigate, showToast]);
-
-  const qty = Number(more.qty);
-  const rate = Number(more.rate);
-  const canAuto = qty > 0 && rate > 0;
-
-  useEffect(() => {
-    if (!canAuto) {
-      setLocked(false);
-      return;
-    }
-    setLocked(true);
-    setAmount(String(Math.round(qty * rate)));
-  }, [qty, rate, canAuto]);
-
-  const caption = canAuto
-    ? `${qty} ${unitLabel(more.unit, qty)} × ₹${formatGrouped(rate)}`
-    : undefined;
 
   const pondName = ponds.find((p) => p.id === pondId)?.name ?? 'Pond';
   const catLabel =
@@ -104,23 +63,11 @@ export function ExpensePage() {
     (existing && category === existing.category ? existing.title : '');
   const amountNum = Number(amount) || 0;
   const canSave = amountNum > 0 && Boolean(pondId) && Boolean(category || customLabel);
-  const dirty = amount !== '0' || Boolean(category) || Boolean(customLabel) || more.item !== '';
-
-  const patchMore = (next: Partial<ExpenseMore>) => setMore((current) => ({ ...current, ...next }));
-
-  const onPhoto = (file: File | null) => {
-    setMore((current) => {
-      if (current.photoUrl) URL.revokeObjectURL(current.photoUrl);
-      return { ...current, photoUrl: file ? URL.createObjectURL(file) : '' };
-    });
-  };
+  const dirty = amount !== '0' || Boolean(category) || Boolean(customLabel);
 
   const resetDetails = () => {
     setAmount('0');
-    setLocked(false);
-    setMore(EMPTY_MORE);
     setPayment('paid');
-    setPad(true);
     setErrors({});
   };
 
@@ -139,22 +86,14 @@ export function ExpensePage() {
       const row = {
         id: existing?.id ?? nid('ent'),
         title: catLabel || existing?.title || 'Expense',
-        subtitle: more.item ? `${pondName} · ${more.item}` : pondName,
+        subtitle: pondName,
         amount: amountNum,
         kind: 'expense' as const,
         category: category ?? existing?.category ?? 'misc',
         date,
         pondId,
         cycleId: existing && existing.pondId === pondId ? existing.cycleId : activeCycleFor(pondId)?.id,
-        partyId: more.partyId || undefined,
         payment,
-        note: more.note || undefined,
-        item: more.item || undefined,
-        qty: Number(more.qty) || undefined,
-        unit: more.unit || undefined,
-        rate: Number(more.rate) || undefined,
-        mode: more.mode,
-        photoUrl: more.photoUrl || undefined,
       };
       if (existing) {
         updateEntry({ ...existing, ...row });
@@ -185,16 +124,7 @@ export function ExpensePage() {
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-page pb-3 pt-3">
         <div ref={amountRef}>
-        <AmountDisplay
-          digits={amount}
-          locked={locked}
-          caption={caption}
-          onEdit={() => {
-            setLocked(false);
-            setPad(true);
-          }}
-          onActivate={() => setPad(true)}
-        />
+        <AmountDisplay digits={amount} locked={false} onEdit={() => undefined} onActivate={() => undefined} />
         </div>
         {errors.amount ? <p className="text-center text-caption text-danger">{errors.amount}</p> : null}
 
@@ -228,41 +158,21 @@ export function ExpensePage() {
           </div>
         </div>
 
-        <ExpenseDetails
-          open={moreOpen}
-          onToggle={() => {
-            setMoreOpen((value) => !value);
-            setPad(moreOpen);
+      </div>
+
+      <div className="shrink-0 border-t border-line bg-bg px-page pt-2">
+        <Numpad
+          compact
+          onKey={(key) => {
+            setAmount((current) => appendAmount(current, key));
+            amountRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
           }}
-          category={category}
-          payment={payment}
-          values={more}
-          parties={vendors}
-          onChange={patchMore}
-          onPhoto={onPhoto}
-          onAddParty={(name, phone) => {
-            const id = `vendor-${Date.now()}`;
-            setVendors((current) => [...current, { value: id, label: `${name}${phone ? ` · ${phone}` : ''}` }]);
-            patchMore({ partyId: id });
+          onBackspace={() => {
+            setAmount((current) => backspaceAmount(current));
+            amountRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
           }}
         />
       </div>
-
-      {pad && !locked ? (
-        <div className="shrink-0 border-t border-line bg-bg px-page pt-2">
-          <Numpad
-            compact
-            onKey={(key) => {
-              setAmount((current) => appendAmount(current, key));
-              amountRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-            }}
-            onBackspace={() => {
-              setAmount((current) => backspaceAmount(current));
-              amountRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-            }}
-          />
-        </div>
-      ) : null}
       <AddFooter
         primary={existing ? 'Save changes' : 'Save expense'}
         secondary={existing ? undefined : 'Save & add another'}

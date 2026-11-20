@@ -6,6 +6,7 @@ import { SelectField } from '@/components/ui/SelectField';
 import { TextField } from '@/components/ui/TextField';
 import { LOT_SIZES } from '@/data/common';
 import { ponds } from '@/data/farm';
+import { currentCycleDay } from '@/services/ponds';
 import { cn } from '@/lib/cn';
 import { formatINRCompact } from '@/lib/format';
 import { ICON } from '@/lib/tokens';
@@ -49,7 +50,7 @@ export function SalePondChips({
           >
             <span className="text-body font-semibold">{pond.name}</span>
             <span className={cn('text-[10px] leading-3', selected ? 'text-white/70' : 'text-muted')}>
-              Cycle {pond.cycleNumber} · Day {pond.cycleDay}
+              Cycle {pond.cycleNumber} · Day {currentCycleDay(pond) || pond.cycleDay || 1}
             </span>
           </button>
         );

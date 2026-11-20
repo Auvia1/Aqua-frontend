@@ -1,7 +1,7 @@
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { SelectField } from '@/components/ui/SelectField';
 import { TextField } from '@/components/ui/TextField';
-import { FEED_BRANDS, FEED_SIZES } from '@/data/addCatalog';
+import { FEED_SIZES } from '@/data/addCatalog';
 import { FormSection } from '@/features/ponds/FormSection';
 import { cn } from '@/lib/cn';
 import type { SeedUnit } from '@/types';
@@ -84,55 +84,41 @@ export function StartCycleSeedFields({
   );
 }
 
-export const ADD_VENDOR = '__add__';
-
 export function StartCycleFeedFields({
   brand,
   size,
   bagWeight,
   price,
-  vendorId,
-  vendors,
+  vendorName,
   errors,
   onBrand,
   onSize,
   onBagWeight,
   onPrice,
-  onVendor,
-  onAddVendor,
+  onVendorName,
 }: {
   brand: string;
   size: string;
   bagWeight: string;
   price: string;
-  vendorId: string;
-  vendors: { value: string; label: string }[];
+  vendorName: string;
   errors: Record<string, string>;
   onBrand: (value: string) => void;
   onSize: (value: string) => void;
   onBagWeight: (value: string) => void;
   onPrice: (value: string) => void;
-  onVendor: (value: string) => void;
-  onAddVendor: () => void;
+  onVendorName: (value: string) => void;
 }) {
   return (
     <FormSection title="Daily feed plan">
       <p className="-mt-1 text-caption text-muted">
-        Set once. Daily feed only asks how many kg you used.
+        Set once. Daily feed only asks how many kg you used. Vendor and brand are optional.
       </p>
-      <SelectField
-        label="Feed vendor*"
-        placeholder="Select vendor"
-        value={vendorId}
-        error={errors.feedVendor}
-        onChange={(value) => {
-          if (value === ADD_VENDOR) {
-            onAddVendor();
-            return;
-          }
-          onVendor(value);
-        }}
-        options={[...vendors, { value: ADD_VENDOR, label: '+ Add new' }]}
+      <TextField
+        label="Vendor"
+        placeholder="Optional"
+        value={vendorName}
+        onChange={(event) => onVendorName(event.target.value)}
       />
       <div className="grid grid-cols-2 gap-3">
         <TextField
@@ -152,7 +138,12 @@ export function StartCycleFeedFields({
           onChange={(event) => onPrice(event.target.value.replace(/[^\d.]/g, ''))}
         />
       </div>
-      <SelectField label="Feed brand" value={brand} options={[...FEED_BRANDS]} onChange={onBrand} />
+      <TextField
+        label="Feed brand"
+        placeholder="Optional"
+        value={brand}
+        onChange={(event) => onBrand(event.target.value)}
+      />
       <SelectField label="Size / grade" value={size} options={[...FEED_SIZES]} onChange={onSize} />
     </FormSection>
   );

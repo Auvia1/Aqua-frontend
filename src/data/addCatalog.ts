@@ -44,13 +44,18 @@ export const QTY_UNITS = [
   { value: 'packet', label: 'packet' },
 ] as const;
 
-export const FEED_BRANDS = [
-  { value: 'cp', label: 'CP' },
-  { value: 'avanti', label: 'Avanti' },
-  { value: 'grobest', label: 'Grobest' },
-  { value: 'local', label: 'Local' },
-  { value: 'other', label: 'Other' },
-] as const;
+const STORED_BRAND_LABELS: Record<string, string> = {
+  cp: 'CP',
+  avanti: 'Avanti',
+  grobest: 'Grobest',
+  local: 'Local',
+  other: 'Other',
+};
+
+export function feedBrandLabel(value: string): string {
+  const trimmed = value.trim();
+  return STORED_BRAND_LABELS[trimmed] ?? trimmed;
+}
 
 export const FEED_SIZES = [
   { value: '0.5mm', label: '0.5 mm' },
@@ -77,17 +82,6 @@ export const PAYMENT_MODES = [
   { value: 'bank', label: 'Bank' },
   { value: 'cheque', label: 'Cheque' },
 ] as const;
-
-export interface YesterdayFeed {
-  meals: { time: string; kg: number }[];
-  brand: string;
-  size: string;
-  bagWeight: number;
-  pricePerBag: number;
-  vendorId: string;
-}
-
-export const YESTERDAY_FEED: Record<string, YesterdayFeed> = {};
 
 export const DEFAULT_MEALS = [
   { time: '06:00', kg: 0 },

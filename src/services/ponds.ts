@@ -97,7 +97,11 @@ function totalsFor(pondId: string): { spent: number; revenue: number; profit: nu
 }
 
 export function toListItem(pond: Pond): PondListItem {
-  return { pond, ...totalsFor(pond.id) };
+  const cycleDay = pond.status === 'active' ? currentCycleDay(pond) : 0;
+  return {
+    pond: cycleDay > 0 ? { ...pond, cycleDay } : pond,
+    ...totalsFor(pond.id),
+  };
 }
 
 export async function loadPondsPage(): Promise<PondListModel> {
@@ -148,6 +152,20 @@ export function activeCycleFor(pondId: string): CropCycle | undefined {
   return cycles.find((item) => item.pondId === pondId && item.status === 'active');
 }
 
+export function cycleDayCount(startDate: string, endDate?: string): number {
+  const start = parseISODate(startDate);
+  if (Number.isNaN(start.getTime())) return 1;
+  const end = endDate ? parseISODate(endDate) : APP_TODAY;
+  const mark = Number.isNaN(end.getTime()) ? APP_TODAY : end;
+  return Math.max(1, differenceInCalendarDays(mark, start) + 1);
+}
+
+export function currentCycleDay(pond: Pond): number {
+  const cycle = activeCycleFor(pond.id);
+  if (!cycle?.startDate) return 0;
+  return cycleDayCount(cycle.startDate);
+}
+
 export function expenseOnOpenCycle(entry: LedgerEntry): boolean {
   if (entry.kind !== 'expense' || entry.pondId === 'common') return false;
   const pondCycles = cycles.filter((item) => item.pondId === entry.pondId);
@@ -171,7 +189,7 @@ export function cycleFeedPlan(cycle?: CropCycle): {
   if (bagWeight <= 0 || pricePerBag <= 0) return null;
   return {
     vendorId: cycle.feedVendorId ?? '',
-    brand: cycle.feedBrand || 'cp',
+    brand: cycle.feedBrand?.trim() ?? '',
     size: cycle.feedSize || '2mm',
     bagWeight,
     pricePerBag,

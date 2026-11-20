@@ -1,8 +1,7 @@
 import { PaidCreditToggle } from '@/components/ui/PaidCreditToggle';
 import { SelectField } from '@/components/ui/SelectField';
 import { TextField } from '@/components/ui/TextField';
-import { FEED_BRANDS, FEED_SIZES } from '@/data/addCatalog';
-import { ADD_VENDOR } from '@/features/ponds/StartCycleFields';
+import { FEED_SIZES, feedBrandLabel } from '@/data/addCatalog';
 import { formatGrouped } from '@/lib/format';
 import type { PaymentStatus } from '@/types';
 
@@ -13,9 +12,7 @@ export function FeedPlanCard({
   size,
   bagWeight,
   price,
-  vendorId,
   vendorName,
-  vendors,
   payment,
   pricePerBag,
   bagKg,
@@ -25,8 +22,7 @@ export function FeedPlanCard({
   onSize,
   onBagWeight,
   onPrice,
-  onVendor,
-  onAddVendor,
+  onVendorName,
   onPayment,
 }: {
   saved: boolean;
@@ -35,9 +31,7 @@ export function FeedPlanCard({
   size: string;
   bagWeight: string;
   price: string;
-  vendorId: string;
-  vendorName?: string;
-  vendors: { value: string; label: string }[];
+  vendorName: string;
   payment: PaymentStatus;
   pricePerBag: number;
   bagKg: number;
@@ -47,11 +41,11 @@ export function FeedPlanCard({
   onSize: (value: string) => void;
   onBagWeight: (value: string) => void;
   onPrice: (value: string) => void;
-  onVendor: (value: string) => void;
-  onAddVendor: () => void;
+  onVendorName: (value: string) => void;
   onPayment: (value: PaymentStatus) => void;
 }) {
-  const brandLabel = FEED_BRANDS.find((item) => item.value === brand)?.label ?? brand;
+  const brandLabel = feedBrandLabel(brand);
+  const planTitle = [brandLabel, size].filter(Boolean).join(' ') || 'Feed';
 
   if (saved && !editing) {
     return (
@@ -62,7 +56,7 @@ export function FeedPlanCard({
       >
         <p className="text-caption text-muted">This cycle's feed plan</p>
         <p className="mt-1 text-body font-semibold text-ink">
-          {brandLabel} {size} · ₹{formatGrouped(pricePerBag)} / {bagKg} kg
+          {planTitle} · ₹{formatGrouped(pricePerBag)} / {bagKg} kg
         </p>
         <p className="mt-0.5 text-caption text-muted">
           {vendorName || 'No vendor'} · {payment === 'credit' ? 'Credit' : 'Paid'}
@@ -75,19 +69,12 @@ export function FeedPlanCard({
   return (
     <section className="space-y-3 rounded-card bg-card p-4 shadow-soft">
       <h2 className="text-title text-ink">{saved ? 'Change feed plan' : 'Feed plan for this cycle'}</h2>
-      <p className="text-caption text-muted">Set once. Daily logs reuse vendor and price.</p>
-      <SelectField
-        label="Feed vendor"
-        placeholder="Select vendor"
-        value={vendorId}
-        onChange={(value) => {
-          if (value === ADD_VENDOR) {
-            onAddVendor();
-            return;
-          }
-          onVendor(value);
-        }}
-        options={[...vendors, { value: ADD_VENDOR, label: '+ Add new' }]}
+      <p className="text-caption text-muted">Bag price is reused on each daily log. Vendor and brand are optional.</p>
+      <TextField
+        label="Vendor"
+        placeholder="Optional"
+        value={vendorName}
+        onChange={(event) => onVendorName(event.target.value)}
       />
       <div className="grid grid-cols-2 gap-3">
         <TextField
@@ -105,7 +92,12 @@ export function FeedPlanCard({
           onChange={(event) => onPrice(event.target.value.replace(/[^\d.]/g, ''))}
         />
       </div>
-      <SelectField label="Feed brand" value={brand} options={[...FEED_BRANDS]} onChange={onBrand} />
+      <TextField
+        label="Feed brand"
+        placeholder="Optional"
+        value={brand}
+        onChange={(event) => onBrand(event.target.value)}
+      />
       <SelectField label="Size / grade" value={size} options={[...FEED_SIZES]} onChange={onSize} />
       <PaidCreditToggle value={payment} onChange={onPayment} />
       {saved ? (

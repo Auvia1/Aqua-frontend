@@ -11,7 +11,7 @@ import { useLedger } from '@/context/LedgerProvider';
 import { useUi } from '@/context/UiProvider';
 import { FormSection } from '@/features/ponds/FormSection';
 import { StartCycleFeedFields, StartCycleSeedFields } from '@/features/ponds/StartCycleFields';
-import { AddHatcherySheet, AddVendorSheet } from '@/features/ponds/PondSheets';
+import { AddHatcherySheet } from '@/features/ponds/PondSheets';
 import { REQUIRED, parsePositive } from '@/features/ponds/formModel';
 import { farm } from '@/data/farm';
 import { nid } from '@/lib/api';
@@ -24,6 +24,7 @@ import {
   nextCycleNumber,
   startCycle,
 } from '@/services/ponds';
+import { vendorIdForName } from '@/services/add';
 import type { Pond, SeedUnit, SpeciesId } from '@/types';
 
 export function StartCyclePage() {
@@ -32,9 +33,6 @@ export function StartCyclePage() {
   const { showToast } = useUi();
   const { addParty, parties } = useLedger();
   const [pond, setPond] = useState<Pond | undefined>();
-  const vendors = parties
-    .filter((party) => party.kind === 'vendor')
-    .map((party) => ({ value: party.id, label: party.name }));
   const [cycleName, setCycleName] = useState('');
   const [species, setSpecies] = useState<SpeciesId | ''>('');
   const [stocking, setStocking] = useState(toISODate());
@@ -45,13 +43,12 @@ export function StartCyclePage() {
     seedHatcheries.map((item) => ({ value: item.id, label: item.name })),
   );
   const [addOpen, setAddOpen] = useState(false);
-  const [vendorOpen, setVendorOpen] = useState(false);
   const [batch, setBatch] = useState('');
-  const [feedBrand, setFeedBrand] = useState('cp');
+  const [feedBrand, setFeedBrand] = useState('');
   const [feedSize, setFeedSize] = useState('2mm');
   const [feedBag, setFeedBag] = useState('25');
   const [feedPrice, setFeedPrice] = useState('');
-  const [feedVendorId, setFeedVendorId] = useState('');
+  const [feedVendorName, setFeedVendorName] = useState('');
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -81,7 +78,6 @@ export function StartCyclePage() {
     const quantity = parsePositive(qty);
     if (qty.trim() === '') next.qty = REQUIRED;
     if (qty.trim() && (quantity == null || quantity <= 0)) next.qty = 'Enter a quantity greater than 0';
-    if (!feedVendorId) next.feedVendor = REQUIRED;
     const bagWeight = parsePositive(feedBag);
     if (!bagWeight || bagWeight <= 0) next.feedBag = 'Enter bag weight';
     const bagPrice = parsePositive(feedPrice);
@@ -109,8 +105,8 @@ export function StartCyclePage() {
         status: 'active' as const,
         startDate: stocking,
         expectedDays: days,
-        feedVendorId,
-        feedBrand,
+        feedVendorId: vendorIdForName(feedVendorName, parties, addParty),
+        feedBrand: feedBrand.trim() || undefined,
         feedSize,
         feedBagWeight: bagWeight ?? undefined,
         feedPricePerBag: bagPrice ?? undefined,
@@ -201,8 +197,7 @@ export function StartCyclePage() {
           size={feedSize}
           bagWeight={feedBag}
           price={feedPrice}
-          vendorId={feedVendorId}
-          vendors={vendors}
+          vendorName={feedVendorName}
           errors={errors}
           onBrand={setFeedBrand}
           onSize={setFeedSize}
@@ -214,11 +209,7 @@ export function StartCyclePage() {
             setFeedPrice(value);
             if (errors.feedPrice) setErrors((current) => ({ ...current, feedPrice: '' }));
           }}
-          onVendor={(value) => {
-            setFeedVendorId(value);
-            if (errors.feedVendor) setErrors((current) => ({ ...current, feedVendor: '' }));
-          }}
-          onAddVendor={() => setVendorOpen(true)}
+          onVendorName={setFeedVendorName}
         />
         <FormSection title="Notes">
           <TextArea
@@ -248,17 +239,6 @@ export function StartCyclePage() {
           setSources((current) => [...current, { value, label: name }]);
           setHatchery(value);
           setAddOpen(false);
-        }}
-      />
-      <AddVendorSheet
-        open={vendorOpen}
-        onClose={() => setVendorOpen(false)}
-        onAdd={(name) => {
-          const vendorId = nid('vendor');
-          addParty({ id: vendorId, name, kind: 'vendor' });
-          setFeedVendorId(vendorId);
-          if (errors.feedVendor) setErrors((current) => ({ ...current, feedVendor: '' }));
-          setVendorOpen(false);
         }}
       />
     </div>

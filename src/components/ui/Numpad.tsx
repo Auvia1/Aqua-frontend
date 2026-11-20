@@ -8,16 +8,18 @@ interface NumpadProps {
   onKey: (key: string) => void;
   onBackspace: () => void;
   compact?: boolean;
+  decimal?: boolean;
 }
 
-export function Numpad({ onKey, onBackspace, compact = false }: NumpadProps) {
+export function Numpad({ onKey, onBackspace, compact = false, decimal = false }: NumpadProps) {
+  const keys = decimal ? KEYS.map((key) => (key === '00' ? '.' : key)) : KEYS;
   return (
     <div className={cn('grid grid-cols-3', compact ? 'gap-1.5' : 'gap-2')} role="group" aria-label="Number pad">
-      {KEYS.map((key) => (
+      {keys.map((key) => (
         <button
           key={key}
           type="button"
-          aria-label={key === 'back' ? 'Backspace' : key}
+          aria-label={key === 'back' ? 'Backspace' : key === '.' ? 'Decimal point' : key}
           className={cn(
             'pressable flex items-center justify-center rounded-tile bg-surface text-ink',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-800/30',

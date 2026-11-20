@@ -257,6 +257,7 @@ export interface FeedLog {
   meals: number;
   kg: number;
   cost: number;
+  rows?: { time: string; kg: number }[];
 }
 
 export interface HarvestSale {
