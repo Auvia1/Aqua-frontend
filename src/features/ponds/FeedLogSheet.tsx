@@ -8,7 +8,7 @@ export function FeedLogSheet({ log, onClose }: { log: FeedLog | null; onClose: (
       {log ? (
         <dl className="space-y-3 pb-2 text-body">
           <Row label="Date" value={formatDate(log.date)} />
-          <Row label="Meals" value={String(log.meals)} />
+          {log.meals > 0 ? <Row label="Meals" value={String(log.meals)} /> : <Row label="Type" value="Old feed" />}
           <Row label="Total" value={`${log.kg} kg`} />
           <Row label="Cost" value={formatINRCompact(log.cost)} />
         </dl>

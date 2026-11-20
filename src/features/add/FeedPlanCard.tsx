@@ -1,114 +1,167 @@
-import { PaidCreditToggle } from '@/components/ui/PaidCreditToggle';
-import { SelectField } from '@/components/ui/SelectField';
+import { useState } from 'react';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { Button } from '@/components/ui/Button';
+import { DateField } from '@/components/ui/DateField';
 import { TextField } from '@/components/ui/TextField';
-import { FEED_SIZES, feedBrandLabel } from '@/data/addCatalog';
-import { formatGrouped } from '@/lib/format';
-import type { PaymentStatus } from '@/types';
+import { toISODate } from '@/lib/format';
+
+export function formatPerKg(value: number): string {
+  const rounded = Math.round(value * 100) / 100;
+  return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(rounded);
+}
+
+function decimalInput(value: string, places: number): string {
+  const cleaned = value.replace(/[^\d.]/g, '');
+  const [whole, ...rest] = cleaned.split('.');
+  if (rest.length === 0) return whole ?? '';
+  return `${whole}.${rest.join('').slice(0, places)}`;
+}
+
+function positive(value: string): number | null {
+  const amount = Number(value);
+  if (!value.trim() || Number.isNaN(amount) || amount <= 0) return null;
+  return amount;
+}
 
 export function FeedPlanCard({
-  saved,
-  editing,
-  brand,
-  size,
-  bagWeight,
-  price,
-  vendorName,
-  payment,
-  pricePerBag,
-  bagKg,
-  onEdit,
-  onCancel,
-  onBrand,
-  onSize,
-  onBagWeight,
-  onPrice,
-  onVendorName,
-  onPayment,
+  perKg,
+  onSavePrice,
+  onAddOld,
 }: {
-  saved: boolean;
-  editing: boolean;
-  brand: string;
-  size: string;
-  bagWeight: string;
-  price: string;
-  vendorName: string;
-  payment: PaymentStatus;
-  pricePerBag: number;
-  bagKg: number;
-  onEdit: () => void;
-  onCancel: () => void;
-  onBrand: (value: string) => void;
-  onSize: (value: string) => void;
-  onBagWeight: (value: string) => void;
-  onPrice: (value: string) => void;
-  onVendorName: (value: string) => void;
-  onPayment: (value: PaymentStatus) => void;
+  perKg: number;
+  onSavePrice: (rate: number) => Promise<boolean>;
+  onAddOld: (input: { kg: number; rate: number; date: string }) => Promise<boolean>;
 }) {
-  const brandLabel = feedBrandLabel(brand);
-  const planTitle = [brandLabel, size].filter(Boolean).join(' ') || 'Feed';
+  const [priceOpen, setPriceOpen] = useState(false);
+  const [price, setPrice] = useState('');
+  const [priceError, setPriceError] = useState('');
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [kg, setKg] = useState('');
+  const [bulkPrice, setBulkPrice] = useState('');
+  const [bulkDate, setBulkDate] = useState(toISODate());
+  const [kgError, setKgError] = useState('');
+  const [bulkPriceError, setBulkPriceError] = useState('');
+  const [saving, setSaving] = useState<'price' | 'bulk' | null>(null);
 
-  if (saved && !editing) {
-    return (
-      <button
-        type="button"
-        onClick={onEdit}
-        className="pressable w-full rounded-card bg-card px-4 py-3 text-left shadow-soft"
-      >
-        <p className="text-caption text-muted">This cycle's feed plan</p>
-        <p className="mt-1 text-body font-semibold text-ink">
-          {planTitle} · ₹{formatGrouped(pricePerBag)} / {bagKg} kg
-        </p>
-        <p className="mt-0.5 text-caption text-muted">
-          {vendorName || 'No vendor'} · {payment === 'credit' ? 'Credit' : 'Paid'}
-        </p>
-        <p className="mt-2 text-caption font-semibold text-forest-800">Change</p>
-      </button>
-    );
-  }
+  const openPrice = () => {
+    setPrice(perKg > 0 ? formatPerKg(perKg).replace(/,/g, '') : '');
+    setPriceError('');
+    setPriceOpen(true);
+  };
+
+  const openBulk = () => {
+    setKg('');
+    setBulkPrice(perKg > 0 ? formatPerKg(perKg).replace(/,/g, '') : '');
+    setBulkDate(toISODate());
+    setKgError('');
+    setBulkPriceError('');
+    setBulkOpen(true);
+  };
+
+  const savePrice = async () => {
+    const rate = positive(price);
+    if (rate == null) {
+      setPriceError('Enter a price per kg');
+      return;
+    }
+    setSaving('price');
+    const ok = await onSavePrice(rate);
+    setSaving(null);
+    if (ok) setPriceOpen(false);
+  };
+
+  const saveBulk = async () => {
+    const quantity = positive(kg);
+    const rate = positive(bulkPrice);
+    setKgError(quantity == null ? 'Enter quantity' : '');
+    setBulkPriceError(rate == null ? 'Enter a price per kg' : '');
+    if (quantity == null || rate == null) return;
+    setSaving('bulk');
+    const ok = await onAddOld({ kg: quantity, rate, date: bulkDate });
+    setSaving(null);
+    if (ok) setBulkOpen(false);
+  };
 
   return (
-    <section className="space-y-3 rounded-card bg-card p-4 shadow-soft">
-      <h2 className="text-title text-ink">{saved ? 'Change feed plan' : 'Feed plan for this cycle'}</h2>
-      <p className="text-caption text-muted">Bag price is reused on each daily log. Vendor and brand are optional.</p>
-      <TextField
-        label="Vendor"
-        placeholder="Optional"
-        value={vendorName}
-        onChange={(event) => onVendorName(event.target.value)}
-      />
-      <div className="grid grid-cols-2 gap-3">
-        <TextField
-          label="Bag weight"
-          inputMode="decimal"
-          suffix={<span className="text-muted">kg</span>}
-          value={bagWeight}
-          onChange={(event) => onBagWeight(event.target.value.replace(/[^\d.]/g, ''))}
-        />
-        <TextField
-          label="Price per bag"
-          inputMode="decimal"
-          prefix={<span className="text-muted">₹</span>}
-          value={price}
-          onChange={(event) => onPrice(event.target.value.replace(/[^\d.]/g, ''))}
-        />
-      </div>
-      <TextField
-        label="Feed brand"
-        placeholder="Optional"
-        value={brand}
-        onChange={(event) => onBrand(event.target.value)}
-      />
-      <SelectField label="Size / grade" value={size} options={[...FEED_SIZES]} onChange={onSize} />
-      <PaidCreditToggle value={payment} onChange={onPayment} />
-      {saved ? (
-        <button
-          type="button"
-          className="pressable flex min-h-touch w-full items-center justify-center text-body font-semibold text-forest-800"
-          onClick={onCancel}
-        >
-          Cancel
-        </button>
-      ) : null}
-    </section>
+    <>
+      <section className="rounded-card bg-card px-4 py-3 shadow-soft">
+        <p className="text-caption text-muted">Feed price</p>
+        <p className="mt-1 text-body font-semibold text-ink">
+          {perKg > 0 ? `₹${formatPerKg(perKg)} / kg` : 'Not set'}
+        </p>
+        <p className="mt-0.5 text-caption text-muted">
+          {perKg > 0 ? 'New feed uses this rate. Saved feed keeps its own.' : 'Set a rate before logging today’s feed.'}
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={openPrice}
+            className="pressable flex h-12 items-center justify-center rounded-pill bg-tile px-3 text-body font-semibold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-800/30"
+          >
+            {perKg > 0 ? 'Change price' : 'Set price'}
+          </button>
+          <button
+            type="button"
+            onClick={openBulk}
+            className="pressable flex h-12 items-center justify-center rounded-pill bg-tile px-3 text-body font-semibold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-800/30"
+          >
+            Add old feed
+          </button>
+        </div>
+      </section>
+
+      <BottomSheet open={priceOpen} onClose={() => setPriceOpen(false)} title="Feed price">
+        <div className="space-y-3 pb-2">
+          <TextField
+            label="Price per kg"
+            inputMode="decimal"
+            prefix={<span className="text-muted">₹</span>}
+            suffix={<span className="text-muted">/ kg</span>}
+            value={price}
+            error={priceError}
+            onChange={(event) => {
+              setPrice(decimalInput(event.target.value, 2));
+              if (priceError) setPriceError('');
+            }}
+          />
+          <p className="text-caption text-muted">Only feed you add from now on uses this. Feed already saved stays as it was.</p>
+          <Button loading={saving === 'price'} onClick={() => void savePrice()}>
+            Save price
+          </Button>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet open={bulkOpen} onClose={() => setBulkOpen(false)} title="Add old feed">
+        <div className="space-y-3 pb-2">
+          <TextField
+            label="Quantity"
+            inputMode="decimal"
+            suffix={<span className="text-muted">kg</span>}
+            value={kg}
+            error={kgError}
+            onChange={(event) => {
+              setKg(decimalInput(event.target.value, 1));
+              if (kgError) setKgError('');
+            }}
+          />
+          <TextField
+            label="Price per kg"
+            inputMode="decimal"
+            prefix={<span className="text-muted">₹</span>}
+            value={bulkPrice}
+            error={bulkPriceError}
+            onChange={(event) => {
+              setBulkPrice(decimalInput(event.target.value, 2));
+              if (bulkPriceError) setBulkPriceError('');
+            }}
+          />
+          <DateField label="Date" value={bulkDate} onChange={setBulkDate} />
+          <p className="text-caption text-muted">Saved at this price only. It does not change the rate for new feed.</p>
+          <Button loading={saving === 'bulk'} onClick={() => void saveBulk()}>
+            Add feed
+          </Button>
+        </div>
+      </BottomSheet>
+    </>
   );
 }

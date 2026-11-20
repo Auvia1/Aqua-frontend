@@ -102,7 +102,7 @@ export function PondDetailFeed({
               <span>
                 <span className="block text-body font-medium text-ink">{formatDate(log.date)}</span>
                 <span className="text-caption text-muted">
-                  {log.meals} meals · {log.kg} kg
+                  {log.meals > 0 ? `${log.meals} meals · ${log.kg} kg` : `Old feed · ${log.kg} kg`}
                 </span>
               </span>
               <span className="text-caption font-semibold tabular-nums text-ink">{formatINRCompact(log.cost)}</span>
