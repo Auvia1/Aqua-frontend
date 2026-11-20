@@ -32,7 +32,7 @@ export function SwipeRow({
           type="button"
           aria-label="Delete"
           onClick={onDelete}
-          className="flex w-16 items-center justify-center bg-danger text-white"
+          className="flex w-16 items-center justify-center bg-danger/10 text-danger"
         >
           <Trash2 size={ICON.size} strokeWidth={ICON.stroke} />
         </button>

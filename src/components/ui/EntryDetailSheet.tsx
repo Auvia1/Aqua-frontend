@@ -75,23 +75,26 @@ export function EntryDetailSheet({ entry, onClose }: EntryDetailSheetProps) {
             {live.payment === 'credit' ? (
               <Button onClick={() => setPayOpen(true)}>Mark as paid</Button>
             ) : null}
-            {expenseOnOpenCycle(live) ? (
-              <Button
-                onClick={() => {
-                  onClose();
-                  navigate(editPath(live));
-                }}
+            <div className={expenseOnOpenCycle(live) ? 'grid grid-cols-2 gap-2' : ''}>
+              {expenseOnOpenCycle(live) ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    onClose();
+                    navigate(editPath(live));
+                  }}
+                >
+                  Edit
+                </Button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setConfirm(true)}
+                className="pressable inline-flex h-14 w-full items-center justify-center rounded-pill bg-transparent px-5 text-title font-semibold text-danger ring-1 ring-inset ring-danger/30 hover:bg-danger/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
               >
-                Edit
-              </Button>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => setConfirm(true)}
-              className="pressable flex min-h-touch w-full items-center justify-center text-body font-semibold text-danger"
-            >
-              Delete
-            </button>
+                Delete
+              </button>
+            </div>
           </div>
         ) : null}
       </BottomSheet>

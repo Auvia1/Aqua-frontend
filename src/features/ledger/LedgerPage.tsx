@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronDown, Download, Plus, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
+import { ConfirmSheet } from '@/components/ui/ConfirmSheet';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { EntryDetailSheet } from '@/components/ui/EntryDetailSheet';
 import { IconButton } from '@/components/ui/IconButton';
@@ -46,7 +47,7 @@ export function LedgerPage() {
   const statusLabel = { all: t('status'), paid: t('paid'), credit: t('credit') } as const;
   const [params] = useSearchParams();
   const firstUse = params.get('empty') === '1';
-  const { entries } = useLedger();
+  const { entries, deleteEntry } = useLedger();
   const { showToast } = useUi();
   const [query, setQuery] = useState<LedgerQuery>(defaultLedgerQuery);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -56,6 +57,7 @@ export function LedgerPage() {
   const [statusOpen, setStatusOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [active, setActive] = useState<LedgerEntry | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<LedgerEntry | null>(null);
   const [limit, setLimit] = useState(LEDGER_PAGE);
   const [loading, setLoading] = useState(!firstUse);
 
@@ -194,7 +196,7 @@ export function LedgerPage() {
                   }
                   navigate(editPath(entry));
                 }}
-                onDelete={() => showToast(t('comingSoon'))}
+                onDelete={(entry) => setPendingDelete(entry)}
               />
               {shown < filtered.length ? (
                 <Button variant="ghost" onClick={() => setLimit((value) => value + LEDGER_PAGE)}>
@@ -238,6 +240,19 @@ export function LedgerPage() {
         onPick={(label) => showToast(t('comingSoonNamed', { label }))}
       />
       <EntryDetailSheet entry={active} onClose={() => setActive(null)} />
+      <ConfirmSheet
+        open={Boolean(pendingDelete)}
+        title="Delete entry?"
+        message="This entry will be removed from the ledger."
+        confirmLabel="Delete"
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (!pendingDelete) return;
+          deleteEntry(pendingDelete.id);
+          setPendingDelete(null);
+          showToast('Entry deleted');
+        }}
+      />
     </div>
   );
 }

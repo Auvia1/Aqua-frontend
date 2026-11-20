@@ -5,6 +5,7 @@ import { harvestSales as liveSales } from '@/data/sales';
 import {
   deleteRemoteEntry,
   deleteRemoteParty,
+  deleteRemoteSale,
   getRemoteCache,
   saveEntries,
   saveParties,
@@ -79,10 +80,32 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     }
   }, [entries]);
 
-  const deleteEntry = useCallback((id: string) => {
-    deleteRemoteEntry(id);
-    setEntries((current) => current.filter((entry) => entry.id !== id));
-  }, []);
+  const deleteEntry = useCallback(
+    (id: string) => {
+      const removed = entries.find((entry) => entry.id === id);
+      deleteRemoteEntry(id);
+      setEntries((current) => {
+        const next = current.filter((entry) => entry.id !== id);
+        liveEntries.splice(0, liveEntries.length, ...next);
+        return next;
+      });
+      if (removed?.kind !== 'revenue') return;
+      const sale = sales.find(
+        (item) =>
+          item.pondId === removed.pondId &&
+          String(item.date).slice(0, 10) === removed.date.slice(0, 10) &&
+          Number(item.netAmount) === Number(removed.amount),
+      );
+      if (!sale) return;
+      deleteRemoteSale(sale.id);
+      setSales((current) => {
+        const next = current.filter((item) => item.id !== sale.id);
+        liveSales.splice(0, liveSales.length, ...next);
+        return next;
+      });
+    },
+    [entries, sales],
+  );
 
   const recordPayment = useCallback(
     (input: { partyId: string; amount: number; date: string; mode: PaymentMode; note?: string; entryIds?: string[] }) => {

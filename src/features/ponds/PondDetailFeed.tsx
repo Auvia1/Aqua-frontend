@@ -64,7 +64,7 @@ export function PondDetailFeed({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-2">
-        <StatCard label="Total feed" value={`${Math.round(model.feedKg)} kg`} />
+        <StatCard label="Total feed" value={`${formatKg(model.feedKg)} kg`} />
         <StatCard label="Average / day" value={`${model.feedPerDay.toFixed(1)} kg`} />
         <StatCard label="Feed cost" value={formatINRCompact(model.feedCost)} />
       </div>
@@ -114,6 +114,11 @@ export function PondDetailFeed({
       <Button onClick={onAdd}>Add today’s feed</Button>
     </div>
   );
+}
+
+function formatKg(kg: number): string {
+  const rounded = Math.round((Number(kg) || 0) * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
 function StatCard({ label, value }: { label: string; value: string }) {

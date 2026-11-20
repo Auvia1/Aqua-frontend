@@ -129,6 +129,10 @@ export function saveSales(list: HarvestSale[]): void {
   void upsertRows('sales', list);
 }
 
+export function deleteRemoteSale(id: string): void {
+  void deleteRow('sales', id);
+}
+
 export function savePayments(list: PartyPayment[]): void {
   void upsertRows('payments', list);
 }
